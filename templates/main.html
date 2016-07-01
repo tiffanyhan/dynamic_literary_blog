@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title></title>
+	</head>
+	<body>
+		{% for submission in submissions %}
+			<article>
+				<h2>{{ submission.subject }}</h2>
+				<p>{{ submission.content }}<p>
+			</article>
+		{% endfor %}
+	</body>
+
+</html>
