@@ -1,26 +1,21 @@
-<!DOCTYPE html>
-<html>
-	<head>
-		<title>Blog</title>
-	</head>
+{% extends "base.html" %}
 
-	<body>
-		<h1>Blog</h1>
+{% block content %}
+	<h1>new post</h1>
 
-		<form method="post">
-			<label>
-				<div>Title:</div>
-				<input type="text" name="subject" value="{{ subject }}">
-			</label>
+	<form method="post">
+		<label>
+			<div>Title:</div>
+			<input type="text" name="subject" value="{{ subject }}">
+		</label>
 
-			<label>
-				<div>Post your blog submission here:</div>
-				<textarea name="content">{{ content }}</textarea>
-			</label>
+		<label>
+			<div>Post your blog submission here:</div>
+			<textarea name="content">{{ content }}</textarea>
+		</label>
 
-			<div class="error">{{ error }}</div>
+		<div class="error">{{ error }}</div>
 
-			<input type="submit">
-		</form>
-	</body>
-</html>
+		<input type="submit">
+	</form>
+{% endblock %}

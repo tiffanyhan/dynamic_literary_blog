@@ -1,13 +1,15 @@
-<!DOCTYPE html>
-<html>
-	<head>
-		<title>Submitted post</title>
-	</head>
-	<body>
-		<article>
-			<h2>{{ subject }}</h2>
-			<p>{{ content }}<p>
-		</article>
-	</body>
+<div class="submission">
+	<div class="submission-heading">
+		<div class="submission-subject">
+			{{ submission.subject }}
+		</div>
 
-</html>
+		<div class="submission-date">
+			{{ submission.created.strftime("%b %d, %Y") }}
+		</div>
+	</div>
+
+	<div class="submission-content">
+		{{ submission._render_text | safe }}
+	</div>
+</div>

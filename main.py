@@ -15,6 +15,9 @@
 # limitations under the License.
 #
 import os
+from string import letters
+import re
+
 import webapp2
 import jinja2
 import time
@@ -24,6 +27,11 @@ from google.appengine.ext import db
 template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
 								autoescape = True)
+
+def render_str(template, **params):
+	print('render string called')
+	t = jinja_env.get_template(template)
+	return t.render(params)
 
 class Handler(webapp2.RequestHandler):
 	def write(self, *a, **kw):
@@ -36,13 +44,17 @@ class Handler(webapp2.RequestHandler):
 	def render(self, template, **kw):
 		self.write(self.render_str(template, **kw))
 
+def blog_key(name = 'default'):
+	return db.Key.from_path('/', name)
+
 class Submission(db.Model):
 	subject = db.StringProperty(required = True)
 	content = db.TextProperty(required = True)
 	created = db.DateTimeProperty(auto_now_add = True)
 
 	def render(self):
-		self._render_text = self.content.replace('/n', '<br>')
+		print('render called')
+		self._render_text = self.content.replace('\n', '<br>')
 		return render_str('submission.html', submission=self)
 
 class MainHandler(Handler):
@@ -59,27 +71,29 @@ class NewHandler(Handler):
 		content = self.request.get("content")
 
 		if subject and content:
-			submission = Submission(subject=subject, content=content)
+			submission = Submission(parent=blog_key(), subject=subject, content=content)
 			submission.put()
 			time.sleep(1)
 
-			self.redirect('/submission?subject=' + subject)
+			self.redirect('/%s' % str(submission.key().id()))
 
 		else:
 			error = "You must enter both a subject and content"
 			self.render("new.html", subject=subject, content=content, error=error)
 
 class SubmissionHandler(Handler):
-	def get(self):
-		subject = self.request.get("subject")
-		submission = db.GqlQuery("SELECT * FROM Submission WHERE subject=:str", str=subject)
-		post = submission.get()
-		content = post.content
+	def get(self, submission_id):
+		key = db.Key.from_path('Submission', int(submission_id), parent=blog_key())
+		submission = db.get(key)
 
-		self.render("submission.html", subject=subject, content=content)
+		if not submission:
+			self.error(404)
+			return
+
+		self.render("permalink.html", submission=submission)
 
 app = webapp2.WSGIApplication([
 	('/', MainHandler),
 	('/newpost', NewHandler),
-	('/submission', SubmissionHandler)
+	('/([0-9]+)', SubmissionHandler)
 ], debug=True)
