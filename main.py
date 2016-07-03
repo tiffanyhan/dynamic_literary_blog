@@ -133,6 +133,11 @@ def hash_str(s):
 def make_secure_val(s):
 	return "%s|%s" % (s, hash_str(s))
 
+def check_secure_val(h):
+	val = h.split('|')[0]
+	if h == make_secure_val(val):
+		return val
+
 # user class for database
 def user_key(name = 'default'):
 	return db.Key.from_path('/', name)
@@ -187,7 +192,7 @@ class SignUpHandler(Handler):
 			# cookie stuff
 			user_id = str(user.key().id())
 			new_cookie_val = make_secure_val(user_id)
-			self.response.headers.add_header('Set-Cookie', 'user-id=%s' % new_cookie_val)
+			self.response.headers.add_header('Set-Cookie', 'user-id=%s; Path=/' % new_cookie_val)
 
 			time.sleep(1)
 
@@ -196,15 +201,14 @@ class SignUpHandler(Handler):
 class SignUpThanksHandler(Handler):
 	def get(self):
 		cookie_val = self.request.cookies.get('user-id')
-		user_id = cookie_val.split('|')[0]
-		key = db.Key.from_path('User', int(user_id), parent=user_key())
-		user = db.get(key)
+		user_id = check_secure_val(cookie_val)
+		if user_id:
+			key = db.Key.from_path('User', int(user_id), parent=user_key())
+			user = db.get(key)
+			self.render("signup_thanks.html", user=user)
 
-		if not user:
-			self.error(404)
-			return
-
-		self.render("signup_thanks.html", user=user)
+		else:
+			self.redirect("/signup")
 
 app = webapp2.WSGIApplication([
 	('/', MainHandler),
