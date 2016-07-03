@@ -21,6 +21,10 @@ import re
 import webapp2
 import jinja2
 import time
+import hashlib
+
+import random
+import string
 
 from google.appengine.ext import db
 
@@ -107,8 +111,19 @@ def valid_email(email):
 def unique_username(username):
 	q = db.GqlQuery("SELECT * FROM User WHERE username = :1", username)
 	users_with_name = q.get()
-	print(users_with_name)
 	return users_with_name == None
+
+def make_salt():
+	return ''.join(random.choice(string.letters) for x in xrange(5))
+
+def make_pw_hash(name, pw, salt=''):
+	if not salt:
+		salt = make_salt()
+	h = hashlib.sha256(name + pw + salt).hexdigest()
+	return '%s|%s' % (salt, h)
+
+def user_key(name = 'default'):
+	return db.Key.from_path('/', name)
 
 class User(db.Model):
 	username = db.StringProperty(required = True)
@@ -130,6 +145,7 @@ class SignUpHandler(Handler):
 		params = dict(username = username,
 					  email = email)
 
+		# check for any errors
 		if not valid_username(username):
 			params['username_error'] = "That's not a valid username"
 			have_error = True
@@ -147,20 +163,30 @@ class SignUpHandler(Handler):
 			params['email_error'] = "That's not a valid email"
 			have_error = True
 
+		# there's some error(s)
 		if have_error:
 			self.render("signup.html", **params)
+		# succest!!
 		else:
-			user = User(username=username, password=password, email=email)
+			password_hash = make_pw_hash(username, password)
+			user = User(parent=user_key(), username=username, password=password_hash, email=email)
 			user.put()
+			self.response.headers.add_header('Set-Cookie', 'user-id=%s' % str(user.key().id()))
 			time.sleep(1)
 
-			self.redirect('/signup/thanks?username=' + username)
+			self.redirect('/signup/thanks')
 
 class SignUpThanksHandler(Handler):
 	def get(self):
-		username = self.request.get('username')
-		self.render("signup_thanks.html", username=username)
+		user_id = self.request.cookies.get('user-id')
+		key = db.Key.from_path('User', int(user_id), parent=user_key())
+		user = db.get(key)
 
+		if not user:
+			self.error(404)
+			return
+
+		self.render("signup_thanks.html", user=user)
 
 app = webapp2.WSGIApplication([
 	('/', MainHandler),
