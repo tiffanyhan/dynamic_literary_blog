@@ -22,9 +22,12 @@ import webapp2
 import jinja2
 import time
 import hashlib
+import hmac
 
 import random
 import string
+
+SECRET = 'imsosecret'
 
 from google.appengine.ext import db
 
@@ -113,6 +116,7 @@ def unique_username(username):
 	users_with_name = q.get()
 	return users_with_name == None
 
+# password stuff
 def make_salt():
 	return ''.join(random.choice(string.letters) for x in xrange(5))
 
@@ -120,8 +124,16 @@ def make_pw_hash(name, pw, salt=''):
 	if not salt:
 		salt = make_salt()
 	h = hashlib.sha256(name + pw + salt).hexdigest()
-	return '%s|%s' % (salt, h)
+	return '%s|%s' % (h, salt)
 
+# cookie stuff
+def hash_str(s):
+	return hmac.new(SECRET, s).hexdigest()
+
+def make_secure_val(s):
+	return "%s|%s" % (s, hash_str(s))
+
+# user class for database
 def user_key(name = 'default'):
 	return db.Key.from_path('/', name)
 
@@ -168,17 +180,23 @@ class SignUpHandler(Handler):
 			self.render("signup.html", **params)
 		# succest!!
 		else:
+			# password stuff
 			password_hash = make_pw_hash(username, password)
 			user = User(parent=user_key(), username=username, password=password_hash, email=email)
 			user.put()
-			self.response.headers.add_header('Set-Cookie', 'user-id=%s' % str(user.key().id()))
+			# cookie stuff
+			user_id = str(user.key().id())
+			new_cookie_val = make_secure_val(user_id)
+			self.response.headers.add_header('Set-Cookie', 'user-id=%s' % new_cookie_val)
+
 			time.sleep(1)
 
 			self.redirect('/signup/thanks')
 
 class SignUpThanksHandler(Handler):
 	def get(self):
-		user_id = self.request.cookies.get('user-id')
+		cookie_val = self.request.cookies.get('user-id')
+		user_id = cookie_val.split('|')[0]
 		key = db.Key.from_path('User', int(user_id), parent=user_key())
 		user = db.get(key)
 
