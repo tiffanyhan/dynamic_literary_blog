@@ -104,6 +104,17 @@ EMAIL_RE = re.compile(r"^[\S]+@[\S]+.[\S]+$")
 def valid_email(email):
 	return not email or EMAIL_RE.match(email)
 
+def unique_username(username):
+	q = db.GqlQuery("SELECT * FROM User WHERE username = :1", username)
+	users_with_name = q.get()
+	print(users_with_name)
+	return users_with_name == None
+
+class User(db.Model):
+	username = db.StringProperty(required = True)
+	password = db.StringProperty(required = True)
+	email = db.StringProperty()
+
 class SignUpHandler(Handler):
 	def get(self):
 		self.render("signup.html")
@@ -122,6 +133,9 @@ class SignUpHandler(Handler):
 		if not valid_username(username):
 			params['username_error'] = "That's not a valid username"
 			have_error = True
+		elif not unique_username(username):
+			params['username_error'] = 'That username already exists'
+			have_error = True
 
 		if not valid_password(password):
 			params['password_error'] = "That's not a valid password"
@@ -136,6 +150,10 @@ class SignUpHandler(Handler):
 		if have_error:
 			self.render("signup.html", **params)
 		else:
+			user = User(username=username, password=password, email=email)
+			user.put()
+			time.sleep(1)
+
 			self.redirect('/signup/thanks?username=' + username)
 
 class SignUpThanksHandler(Handler):
