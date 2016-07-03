@@ -92,8 +92,62 @@ class SubmissionHandler(Handler):
 
 		self.render("permalink.html", submission=submission)
 
+USER_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
+def valid_username(username):
+	return username and USER_RE.match(username)
+
+PASSWORD_RE = re.compile(r"^.{3,20}$")
+def valid_password(password):
+	return password and PASSWORD_RE.match(password)
+
+EMAIL_RE = re.compile(r"^[\S]+@[\S]+.[\S]+$")
+def valid_email(email):
+	return not email or EMAIL_RE.match(email)
+
+class SignUpHandler(Handler):
+	def get(self):
+		self.render("signup.html")
+
+	def post(self):
+		have_error = False
+
+		username = self.request.get("username").encode("latin-1")
+		password = self.request.get("password").encode("latin-1")
+		verify = self.request.get("verify").encode("latin-1")
+		email = self.request.get("email").encode("latin-1")
+
+		params = dict(username = username,
+					  email = email)
+
+		if not valid_username(username):
+			params['username_error'] = "That's not a valid username"
+			have_error = True
+
+		if not valid_password(password):
+			params['password_error'] = "That's not a valid password"
+			have_error = True
+		elif password != verify:
+			params['verify_error'] = "Your passwords don't match"
+
+		if not valid_email(email):
+			params['email_error'] = "That's not a valid email"
+			have_error = True
+
+		if have_error:
+			self.render("signup.html", **params)
+		else:
+			self.redirect('/signup/thanks?username=' + username)
+
+class SignUpThanksHandler(Handler):
+	def get(self):
+		username = self.request.get('username')
+		self.render("signup_thanks.html", username=username)
+
+
 app = webapp2.WSGIApplication([
 	('/', MainHandler),
 	('/newpost', NewHandler),
-	('/([0-9]+)', SubmissionHandler)
+	('/([0-9]+)', SubmissionHandler),
+	('/signup', SignUpHandler),
+	('/signup/thanks', SignUpThanksHandler)
 ], debug=True)
