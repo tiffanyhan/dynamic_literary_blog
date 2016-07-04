@@ -167,7 +167,7 @@ class SignUpHandler(Handler):
 			params['username_error'] = "That's not a valid username"
 			have_error = True
 		elif not unique_username(username):
-			params['username_error'] = 'That username already exists'
+			params['username_error'] = 'That user already exists'
 			have_error = True
 
 		if not valid_password(password):
