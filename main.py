@@ -253,7 +253,7 @@ class LogInHandler(Handler):
 
 class LogOutHandler(Handler):
 	def get(self):
-		self.response.headers.add_header('Set-Cookie', 'user-id=""; Path=/')
+		self.response.headers.add_header('Set-Cookie', 'user-id=; Path=/')
 		self.redirect('/signup')
 
 app = webapp2.WSGIApplication([
