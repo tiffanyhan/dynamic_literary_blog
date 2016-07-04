@@ -6,12 +6,12 @@
 	<form method="post">
 		<label>
 			<div>Title:</div>
-			<input type="text" name="subject" value="{{ subject }}">
+			<input class="subject-input" type="text" name="subject" value="{{ subject }}">
 		</label>
 
 		<label>
 			<div>Post your favorite poem by ee cummings here:</div>
-			<textarea name="content">{{ content }}</textarea>
+			<textarea class="content-input" name="content">{{ content }}</textarea>
 		</label>
 
 		<div class="error">{{ error }}</div>

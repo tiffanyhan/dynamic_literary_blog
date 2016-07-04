@@ -196,24 +196,72 @@ class SignUpHandler(Handler):
 
 			time.sleep(1)
 
-			self.redirect('/signup/thanks')
+			self.redirect('/welcome')
 
-class SignUpThanksHandler(Handler):
+class WelcomeHandler(Handler):
 	def get(self):
 		cookie_val = self.request.cookies.get('user-id')
 		user_id = check_secure_val(cookie_val)
 		if user_id:
 			key = db.Key.from_path('User', int(user_id), parent=user_key())
 			user = db.get(key)
-			self.render("signup_thanks.html", user=user)
-
+			self.render("welcome.html", user=user)
 		else:
 			self.redirect("/signup")
+
+class LogInHandler(Handler):
+	def get(self):
+		self.render('login.html')
+
+	def post(self):
+		have_error = False
+
+		username = self.request.get("username").encode("latin-1")
+		password = self.request.get("password").encode("latin-1")
+
+		print(username, password)
+
+		params = dict(username = username)
+
+		if username == '' or password =='':
+			params['error'] = 'Invalid login'
+			have_error = True
+		#only if they filled out both a username and password
+		else:
+			q = db.GqlQuery('SELECT * FROM User WHERE username = :1', username)
+			user = q.get()
+
+			if not user:
+				params['error'] = 'Invalid login'
+				have_error = True
+			#check if username matches something we have in db
+			else:
+				pw_hash = user.password
+				print pw_hash
+				salt = pw_hash.split('|')[1]
+				test_hash = make_pw_hash(username, password, salt)
+
+				if not test_hash == pw_hash:
+					params['error'] = 'Invalid login'
+					have_error = True
+
+		if have_error == True:
+			self.render('login.html', **params)
+		else:
+			print have_error
+			self.redirect('/welcome')
+
+class LogOutHandler(Handler):
+	def get(self):
+		self.response.headers.add_header('Set-Cookie', 'user-id=""; Path=/')
+		self.redirect('/signup')
 
 app = webapp2.WSGIApplication([
 	('/', MainHandler),
 	('/newpost', NewHandler),
 	('/([0-9]+)', SubmissionHandler),
 	('/signup', SignUpHandler),
-	('/signup/thanks', SignUpThanksHandler)
+	('/welcome', WelcomeHandler),
+	('/login', LogInHandler),
+	('/logout', LogOutHandler)
 ], debug=True)
