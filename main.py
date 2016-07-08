@@ -51,6 +51,27 @@ class Handler(webapp2.RequestHandler):
 	def render(self, template, **kw):
 		self.write(self.render_str(template, **kw))
 
+	def set_secure_cookie(self, name, val):
+		cookie_val = make_secure_val(val)
+		self.response.headers.add_header(
+			'Set-Cookie',
+			'%s=%s; Path=/' % (name, cookie_val))
+
+	def read_secure_cookie(self, name):
+		cookie_val = self.request.cookies.get(name)
+		return cookie_val and check_secure_val(cookie_val)
+
+	def login(self, user):
+		self.set_secure_cookie('user-id', str(user.key().id()))
+
+	def logout(self):
+		self.response.headers.add_header('Set-Cookie', 'user-id=; Path=/')
+
+	def initialize(self, *a, **kw):
+		webapp2.RequestHandler.initialize(self, *a, **kw)
+		uid = self.read_secure_cookie('user-id')
+		self.user = uid and User.by_id(int(uid))
+
 def blog_key(name = 'default'):
 	return db.Key.from_path('/', name)
 
@@ -111,11 +132,6 @@ EMAIL_RE = re.compile(r"^[\S]+@[\S]+.[\S]+$")
 def valid_email(email):
 	return not email or EMAIL_RE.match(email)
 
-def unique_username(username):
-	q = db.GqlQuery("SELECT * FROM User WHERE username = :1", username)
-	users_with_name = q.get()
-	return users_with_name == None
-
 # password stuff
 def make_salt():
 	return ''.join(random.choice(string.letters) for x in xrange(5))
@@ -124,7 +140,11 @@ def make_pw_hash(name, pw, salt=''):
 	if not salt:
 		salt = make_salt()
 	h = hashlib.sha256(name + pw + salt).hexdigest()
-	return '%s|%s' % (h, salt)
+	return '%s|%s' % (salt, h)
+
+def valid_pw(name, password, h):
+	salt = h.split('|')[0]
+	return h == make_pw_hash(name, password, salt)
 
 # cookie stuff
 def hash_str(s):
@@ -139,13 +159,36 @@ def check_secure_val(h):
 		return val
 
 # user class for database
-def user_key(name = 'default'):
+def users_key(name = 'default'):
 	return db.Key.from_path('/', name)
 
 class User(db.Model):
 	username = db.StringProperty(required = True)
-	password = db.StringProperty(required = True)
+	pw_hash = db.StringProperty(required = True)
 	email = db.StringProperty()
+
+	@classmethod
+	def by_id(cls, uid):
+		return User.get_by_id(uid, parent=users_key())
+
+	@classmethod
+	def by_name(cls, name):
+		u = User.all().filter('username =', name).get()
+		return u
+
+	@classmethod
+	def register(cls, name, pw, email = None):
+		pw_hash = make_pw_hash(name, pw)
+		return User(parent = users_key(),
+					username = name,
+					pw_hash = pw_hash,
+					email = email)
+
+	@classmethod
+	def login(cls, name, pw):
+		u = cls.by_name(name)
+		if u and valid_pw(name, pw, u.pw_hash):
+			return u
 
 class SignUpHandler(Handler):
 	def get(self):
@@ -154,29 +197,29 @@ class SignUpHandler(Handler):
 	def post(self):
 		have_error = False
 
-		username = self.request.get("username").encode("latin-1")
-		password = self.request.get("password").encode("latin-1")
-		verify = self.request.get("verify").encode("latin-1")
-		email = self.request.get("email").encode("latin-1")
+		self.username = self.request.get("username").encode("latin-1")
+		self.password = self.request.get("password").encode("latin-1")
+		self.verify = self.request.get("verify").encode("latin-1")
+		self.email = self.request.get("email").encode("latin-1")
 
-		params = dict(username = username,
-					  email = email)
+		params = dict(username = self.username,
+					  email = self.email)
 
 		# check for any errors
-		if not valid_username(username):
+		if not valid_username(self.username):
 			params['username_error'] = "That's not a valid username"
 			have_error = True
-		elif not unique_username(username):
-			params['username_error'] = 'That user already exists'
-			have_error = True
+		elif User.by_name(self.username):
+				params['username_error'] = 'That user already exists'
+				have_error = True
 
-		if not valid_password(password):
+		if not valid_password(self.password):
 			params['password_error'] = "That's not a valid password"
 			have_error = True
-		elif password != verify:
+		elif self.password != self.verify:
 			params['verify_error'] = "Your passwords don't match"
 
-		if not valid_email(email):
+		if not valid_email(self.email):
 			params['email_error'] = "That's not a valid email"
 			have_error = True
 
@@ -185,27 +228,16 @@ class SignUpHandler(Handler):
 			self.render("signup.html", **params)
 		# succest!!
 		else:
-			# password stuff
-			password_hash = make_pw_hash(username, password)
-			user = User(parent=user_key(), username=username, password=password_hash, email=email)
+			user = User.register(self.username, self.password, self.email)
 			user.put()
-			# cookie stuff
-			user_id = str(user.key().id())
-			new_cookie_val = make_secure_val(user_id)
-			self.response.headers.add_header('Set-Cookie', 'user-id=%s; Path=/' % new_cookie_val)
 
-			time.sleep(1)
-
+			self.login(user)
 			self.redirect('/welcome')
 
 class WelcomeHandler(Handler):
 	def get(self):
-		cookie_val = self.request.cookies.get('user-id')
-		user_id = check_secure_val(cookie_val)
-		if user_id:
-			key = db.Key.from_path('User', int(user_id), parent=user_key())
-			user = db.get(key)
-			self.render("welcome.html", user=user)
+		if self.user:
+			self.render("welcome.html", user=self.user)
 		else:
 			self.redirect("/signup")
 
@@ -219,41 +251,17 @@ class LogInHandler(Handler):
 		username = self.request.get("username").encode("latin-1")
 		password = self.request.get("password").encode("latin-1")
 
-		print(username, password)
-
-		params = dict(username = username)
-
-		if username == '' or password =='':
-			params['error'] = 'Invalid login'
-			have_error = True
-		#only if they filled out both a username and password
-		else:
-			q = db.GqlQuery('SELECT * FROM User WHERE username = :1', username)
-			user = q.get()
-
-			if not user:
-				params['error'] = 'Invalid login'
-				have_error = True
-			#check if username matches something we have in db
-			else:
-				pw_hash = user.password
-				print pw_hash
-				salt = pw_hash.split('|')[1]
-				test_hash = make_pw_hash(username, password, salt)
-
-				if not test_hash == pw_hash:
-					params['error'] = 'Invalid login'
-					have_error = True
-
-		if have_error == True:
-			self.render('login.html', **params)
-		else:
-			print have_error
+		user = User.login(username, password)
+		if user:
+			self.login(user)
 			self.redirect('/welcome')
+		else:
+			error = 'Invalid login'
+			self.render('login.html', error=error)
 
 class LogOutHandler(Handler):
 	def get(self):
-		self.response.headers.add_header('Set-Cookie', 'user-id=; Path=/')
+		self.logout()
 		self.redirect('/signup')
 
 app = webapp2.WSGIApplication([
