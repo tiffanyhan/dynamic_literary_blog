@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 
+<p>Already registered?  <a href="/login">Login here</a></p>
 <h2>Signup here</h2>
 <div class="error">{{ error }}</div>
 <form method="post">
@@ -22,6 +23,7 @@
 	</label>
 	<br>
 	<input type="submit">
+	<a href="/">Cancel</a>
 
 </form>
 

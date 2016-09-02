@@ -4,6 +4,9 @@
 
 	<img class="cover-img" src="http://images.barnesandnoble.com/pImages/bn-review/2014/0127/EECummings_AF.jpg" alt="ee cummings">
 
+	<a href="/newpost">Create A New Entry</a>
+	<br>
+	<br>
 	{% for submission in submissions %}
 		{{ submission.render() | safe }}
 		<br><br>
