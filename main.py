@@ -16,6 +16,7 @@
 #
 import os
 from string import letters
+from functools import wraps
 import re
 
 import webapp2
@@ -198,6 +199,58 @@ def check_secure_val(h):
 		return val
 
 
+#DECORATOR FUNCTIONS
+#TODO: include custom error messages when the user is
+#redirected for a more user-friendly experience
+def logout_required(f):
+	@wraps(f)
+	def decorated_function(self, *args, **kwargs):
+		if not self.user:
+			return f(self, *args, **kwargs)
+		else:
+			self.redirect('/')
+	return decorated_function
+
+
+def login_required_redirect_home(f):
+	@wraps(f)
+	def decorated_function(self, *args, **kwargs):
+		if self.user:
+			return f(self, *args, **kwargs)
+		else:
+			self.redirect('/')
+	return decorated_function
+
+
+def login_required_redirect_login(f):
+	@wraps(f)
+	def decorated_function(self, *args, **kwargs):
+		if self.user:
+			return f(self, *args, **kwargs)
+		else:
+			self.redirect('/login')
+	return decorated_function
+
+
+def owner_required(f):
+	@wraps(f)
+	def decorated_function(self, *args, **kwargs):
+		submission_id = args[0]
+		key = db.Key.from_path('Submission', int(submission_id), parent=blog_key())
+		submission = db.get(key)
+
+		if not submission:
+			self.error(404)
+			return
+
+		if self.user.key().id() == submission.user.key().id():
+			args += (submission, )
+			return f(self, *args, **kwargs)
+		else:
+			self.redirect('/%s' % str(submission.key().id()))
+	return decorated_function
+
+
 def render_str(template, **params):
 	'''
 	a global version of render_str that is available
@@ -278,7 +331,6 @@ class Handler(webapp2.RequestHandler):
 		webapp2.RequestHandler.initialize(self, *a, **kw)
 		uid = self.read_secure_cookie('user-id')
 		self.user = uid and User.by_id(int(uid))
-		print(self.user)
 
 
 class MainHandler(Handler):
@@ -289,25 +341,22 @@ class MainHandler(Handler):
 		submissions = db.GqlQuery("SELECT * from Submission ORDER BY created DESC limit 10")
 		self.render("main.html", submissions=submissions)
 
+
 class NewHandler(Handler):
+	@login_required_redirect_login
 	def get(self):
 		'''
 		renders the form to submit a new blog entry
 		'''
-		if self.user:
-			self.render("new.html")
-		else:
-			self.redirect('/login')
+		self.render("new.html")
 
+	@login_required_redirect_login
 	def post(self):
 		'''
 		creates a new submission instance and inserts it into the db.  then redirects
 		the user to the blog entry permalink page.  both subject and content are required
 		to make a blog entry.
 		'''
-		if not self.user:
-			self.redirect('/login')
-
 		subject = self.request.get("subject")
 		content = self.request.get("content")
 
@@ -342,15 +391,14 @@ class SubmissionHandler(Handler):
 
 
 class SignUpHandler(Handler):
+	@logout_required
 	def get(self):
 		'''
 		renders the form to register
 		'''
-		if self.user:
-			self.redirect('/logout')
-		else:
-			self.render("signup.html")
+		self.render("signup.html")
 
+	@logout_required
 	def post(self):
 		'''
 		creates a new user instance and inserts it into the db.
@@ -359,9 +407,6 @@ class SignUpHandler(Handler):
 		if there are any errors, render the signup form again with
 		the appropriate saved data and error messages
 		'''
-		if self.user:
-			self.redirect('/logout')
-
 		have_error = False
 
 		self.username = self.request.get("username").encode("latin-1")
@@ -403,27 +448,23 @@ class SignUpHandler(Handler):
 
 
 class WelcomeHandler(Handler):
+	@login_required_redirect_login
 	def get(self):
 		'''
-		if the user is logged in, render the welcome page.
-		if not, render the signup page.
+		renders the welcome page
 		'''
-		if self.user:
-			self.render("welcome.html", user=self.user)
-		else:
-			self.redirect("/login")
+		self.render("welcome.html", user=self.user)
 
 
 class LogInHandler(Handler):
+	@logout_required
 	def get(self):
 		'''
 		render the form to login
 		'''
-		if self.user:
-			self.redirect('/logout')
-
 		self.render('login.html')
 
+	@logout_required
 	def post(self):
 		'''
 		check the information entered against information stored
@@ -432,9 +473,6 @@ class LogInHandler(Handler):
 
 		if not, render the login form again with an error message
 		'''
-		if self.user:
-			self.redirect('/logout')
-
 		have_error = False
 
 		username = self.request.get("username").encode("latin-1")
@@ -451,95 +489,54 @@ class LogInHandler(Handler):
 
 
 class LogOutHandler(Handler):
+	@login_required_redirect_home
 	def get(self):
-		if self.user:
-			self.render('logout.html', username=self.user.username)
-		else:
-			self.redirect('/')
+		'''
+		renders the logout page
+		'''
+		self.render('logout.html', username=self.user.username)
 
+	@login_required_redirect_home
 	def post(self):
 		'''
 		log the user out and redirect them to the signup page
 		'''
-		if not self.user:
-			self.redirect('/')
-
 		self.logout()
 		self.redirect('/')
 
 
 class EditPostHandler(Handler):
-	def get(self, submission_id):
-		key = db.Key.from_path('Submission', int(submission_id), parent=blog_key())
-		submission = db.get(key)
+	@login_required_redirect_login
+	@owner_required
+	def get(self, submission_id, submission):
+		self.render('edit.html', submission=submission)
 
-		if not submission:
-			self.error(404)
-			return
+	@login_required_redirect_login
+	@owner_required
+	def post(self, submission_id, submission):
+		subject = self.request.get('subject')
+		content = self.request.get('content')
 
-		if not self.user:
-			self.redirect('/login')
-		elif not self.user.key().id() == submission.user.key().id():
-			self.redirect('/')
-		else:
-			self.render('edit.html', submission=submission)
+		submission.subject = subject
+		submission.content = content
+		submission.put()
+		time.sleep(1)
 
-	def post(self, submission_id):
-		key = db.Key.from_path('Submission', int(submission_id), parent=blog_key())
-		submission = db.get(key)
-
-		if not submission:
-			self.error(404)
-			return
-
-		if not self.user:
-			self.redirect('/login')
-		elif not self.user.key().id() == submission.user.key().id():
-			self.redirect('/')
-		else:
-			subject = self.request.get('subject')
-			content = self.request.get('content')
-
-			submission.subject = subject
-			submission.content = content
-			submission.put()
-			time.sleep(1)
-
-			self.redirect('/%s' % str(submission.key().id()))
+		self.redirect('/%s' % str(submission.key().id()))
 
 class DeletePostHandler(Handler):
-	def get(self, submission_id):
-		key = db.Key.from_path('Submission', int(submission_id), parent=blog_key())
-		submission = db.get(key)
+	@login_required_redirect_login
+	@owner_required
+	def get(self, submission_id, submission):
+		self.render('delete.html', submission=submission)
 
-		if not submission:
-			self.error(404)
-			return
+	@login_required_redirect_login
+	@owner_required
+	def post(self, submission_id, submission):
+		db.delete(submission)
+		time.sleep(1)
 
-		if not self.user:
-			self.redirect('/login')
-		elif not self.user.key().id() == submission.user.key().id():
-			self.redirect('/')
-		else:
-			self.render('delete.html', submission=submission)
-
-	def post(self, submission_id):
-		key = db.Key.from_path('Submission', int(submission_id), parent=blog_key())
-		submission = db.get(key)
-
-		if not submission:
-			self.error(404)
-			return
-
-		if not self.user:
-			self.redirect('/login')
-		elif not self.user.key().id() == submission.user.key().id():
-			self.redirect('/')
-		else:
-			db.delete(submission)
-			time.sleep(1)
-
-			self.redirect('/')
+		self.redirect('/')
 
 # ALL ROUTES AND ASSOCIATED HANDLERS
 app = webapp2.WSGIApplication([
