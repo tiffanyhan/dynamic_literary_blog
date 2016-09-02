@@ -1,15 +1,23 @@
 <div class="submission">
-	<div class="submission-heading">
-		<div class="submission-subject">
-			{{ submission.subject }}
-		</div>
 
-		<div class="submission-date">
-			{{ submission.created.strftime("%b %d, %Y") }}
+	<a href={{ '/%s' % (submission.key().id())|string() }} class="no-decoration">
+		<div class="submission-heading">
+			<div class="submission-subject">
+				{{ submission.subject }}
+			</div>
+
+			<div class="submission-date">
+				posted by {{ submission.user.username }}
+				on {{ submission.created.strftime("%b %d, %Y") }}
+			</div>
 		</div>
-	</div>
+	</a>
 
 	<div class="submission-content">
 		{{ submission._render_text | safe }}
 	</div>
+
+	<a href={{ '/%s/edit' % (submission.key().id())|string() }}>Edit</a>
+	<a href={{ '/%s/delete' % (submission.key().id())|string() }}>Delete</a>
+
 </div>

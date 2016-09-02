@@ -61,6 +61,11 @@ input[type=submit] {
     margin-top: 15px;
 }
 
+.no-decoration {
+    text-decoration: none;
+    color: black;
+}
+
 .submission-heading {
     position: relative;
     border-bottom: 3px solid #666;

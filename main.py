@@ -150,6 +150,7 @@ class Submission(db.Model):
 	class used to create the submission instances to be
 	inserted into and retrieved from the db
 	'''
+	user = db.ReferenceProperty(User, collection_name='submissions')
 	subject = db.StringProperty(required = True)
 	content = db.TextProperty(required = True)
 	created = db.DateTimeProperty(auto_now_add = True)
@@ -277,6 +278,7 @@ class Handler(webapp2.RequestHandler):
 		webapp2.RequestHandler.initialize(self, *a, **kw)
 		uid = self.read_secure_cookie('user-id')
 		self.user = uid and User.by_id(int(uid))
+		print(self.user)
 
 
 class MainHandler(Handler):
@@ -310,7 +312,7 @@ class NewHandler(Handler):
 		content = self.request.get("content")
 
 		if subject and content:
-			submission = Submission(parent=blog_key(), subject=subject, content=content)
+			submission = Submission(parent=blog_key(), user=self.user, subject=subject, content=content)
 			submission.put()
 			time.sleep(1)
 
@@ -451,7 +453,7 @@ class LogInHandler(Handler):
 class LogOutHandler(Handler):
 	def get(self):
 		if self.user:
-			self.render('logout.html')
+			self.render('logout.html', username=self.user.username)
 		else:
 			self.redirect('/')
 
@@ -465,6 +467,80 @@ class LogOutHandler(Handler):
 		self.logout()
 		self.redirect('/')
 
+
+class EditPostHandler(Handler):
+	def get(self, submission_id):
+		key = db.Key.from_path('Submission', int(submission_id), parent=blog_key())
+		submission = db.get(key)
+
+		if not submission:
+			self.error(404)
+			return
+
+		if not self.user:
+			self.redirect('/login')
+		elif not self.user.key().id() == submission.user.key().id():
+			self.redirect('/')
+		else:
+			self.render('edit.html', submission=submission)
+
+	def post(self, submission_id):
+		key = db.Key.from_path('Submission', int(submission_id), parent=blog_key())
+		submission = db.get(key)
+
+		if not submission:
+			self.error(404)
+			return
+
+		if not self.user:
+			self.redirect('/login')
+		elif not self.user.key().id() == submission.user.key().id():
+			self.redirect('/')
+		else:
+			subject = self.request.get('subject')
+			content = self.request.get('content')
+
+			submission.subject = subject
+			submission.content = content
+			submission.put()
+			time.sleep(1)
+
+			self.redirect('/%s' % str(submission.key().id()))
+
+class DeletePostHandler(Handler):
+	def get(self, submission_id):
+		key = db.Key.from_path('Submission', int(submission_id), parent=blog_key())
+		submission = db.get(key)
+
+		if not submission:
+			self.error(404)
+			return
+
+		if not self.user:
+			self.redirect('/login')
+		elif not self.user.key().id() == submission.user.key().id():
+			self.redirect('/')
+		else:
+			self.render('delete.html', submission=submission)
+
+	def post(self, submission_id):
+		key = db.Key.from_path('Submission', int(submission_id), parent=blog_key())
+		submission = db.get(key)
+
+		if not submission:
+			self.error(404)
+			return
+
+		if not self.user:
+			self.redirect('/login')
+		elif not self.user.key().id() == submission.user.key().id():
+			self.redirect('/')
+		else:
+			db.delete(submission)
+			time.sleep(1)
+
+			self.redirect('/')
+
 # ALL ROUTES AND ASSOCIATED HANDLERS
 app = webapp2.WSGIApplication([
 	('/', MainHandler),
@@ -473,5 +549,7 @@ app = webapp2.WSGIApplication([
 	('/signup', SignUpHandler),
 	('/welcome', WelcomeHandler),
 	('/login', LogInHandler),
-	('/logout', LogOutHandler)
+	('/logout', LogOutHandler),
+	('/([0-9]+)/edit', EditPostHandler),
+	('/([0-9]+)/delete', DeletePostHandler)
 ], debug=True)
