@@ -283,6 +283,7 @@ def owner_submission_required(f):
 		if self.user.key().id() == submission.user.key().id():
 			return f(self, *args, **kwargs)
 		else:
+			submission_id = args[0]
 			self.redirect('/%s' % submission_id)
 	return decorated_function
 
@@ -290,13 +291,12 @@ def owner_submission_required(f):
 def not_owner_submission_required(f):
 	@wraps(f)
 	def decorated_function(self, *args, **kwargs):
-		submission_id = args[0]
-		submission = Submission.by_id(submission_id)
+		submission = kwargs['submission']
 
 		if self.user.key().id() != submission.user.key().id():
-			args += (submission, )
 			return f(self, *args, **kwargs)
 		else:
+			submission_id = args[0]
 			self.redirect('/%s' % submission_id)
 	return decorated_function
 
