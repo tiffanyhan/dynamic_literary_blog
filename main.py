@@ -635,13 +635,13 @@ class DeletePostHandler(Handler):
 class NewCommentHandler(Handler):
 	@login_required_redirect_login
 	@submission_required
-	def get(self, submission_id):
+	def get(self, submission_id, **kwargs):
 		submission = kwargs['submission']
 		self.render('new_comment.html', submission=submission)
 
 	@login_required_redirect_login
 	@submission_required
-	def post(self, submission_id):
+	def post(self, submission_id, **kwargs):
 		submission = kwargs['submission']
 		content = self.request.get('content')
 
