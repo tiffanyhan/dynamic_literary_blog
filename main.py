@@ -204,6 +204,12 @@ class Comment(db.Model):
 		return comment
 
 
+class Like(db.Model):
+	submission = db.ReferenceProperty(Submission, collection_name='likes')
+	user = db.ReferenceProperty(User, collection_name='likes')
+	created = db.DateTimeProperty(auto_now_add=True)
+
+
 # COOKIES
 def hash_str(s):
 	'''
@@ -269,6 +275,20 @@ def owner_submission_required(f):
 		submission = Submission.by_id(submission_id)
 
 		if self.user.key().id() == submission.user.key().id():
+			args += (submission, )
+			return f(self, *args, **kwargs)
+		else:
+			self.redirect('/%s' % submission_id)
+	return decorated_function
+
+
+def not_owner_submission_required(f):
+	@wraps(f)
+	def decorated_function(self, *args, **kwargs):
+		submission_id = args[0]
+		submission = Submission.by_id(submission_id)
+
+		if self.user.key().id() != submission.user.key().id():
 			args += (submission, )
 			return f(self, *args, **kwargs)
 		else:
@@ -643,6 +663,20 @@ class DeleteCommentHandler(Handler):
 
 		self.redirect('/%s' % submission_id)
 
+
+class LikePostHandler(Handler):
+	@not_owner_submission_required
+	def post(self, submission_id, submission):
+		for like in submission.likes:
+			if self.user.key().id() == like.user.key().id():
+				self.redirect('/%s' % submission_id)
+				return
+		like = Like(submission=submission, user=self.user)
+		like.put()
+		time.sleep(1)
+
+		self.redirect('/%s' % submission_id)
+
 # ALL ROUTES AND ASSOCIATED HANDLERS
 app = webapp2.WSGIApplication([
 	('/', MainHandler),
@@ -656,5 +690,6 @@ app = webapp2.WSGIApplication([
 	('/([0-9]+)/delete', DeletePostHandler),
 	('/([0-9]+)/newcomment', NewCommentHandler),
 	('/([0-9]+)/comment/([0-9]+)/edit', EditCommentHandler),
-	('/([0-9]+)/comment/([0-9]+)/delete', DeleteCommentHandler)
+	('/([0-9]+)/comment/([0-9]+)/delete', DeleteCommentHandler),
+	('/([0-9]+)/like', LikePostHandler)
 ], debug=True)

@@ -14,7 +14,7 @@
 
 		<div class="error">{{ error }}</div>
 
-		<input type="submit" value="Edit">
-		<a href={{ '/%s' % (submission.key().id())|string() }}>Cancel</a>
+		<input class="submit" type="submit" value="Edit">
+		<a class="link" href={{ '/%s' % (submission.key().id())|string() }}>Cancel</a>
 	</form>
 {% endblock %}

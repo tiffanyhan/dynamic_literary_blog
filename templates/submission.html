@@ -15,7 +15,9 @@
 		{{ submission._render_text | safe }}
 	</div>
 
-	<a class="link" href="">Like</a>
+	<form class="inline" method="post" action={{ '/%s/like' % (submission.key().id())|string() }}>
+		<input class="link form-link" type="submit" value="Like">
+	</form>
 	<a class="link" href={{ '/%s/newcomment' % (submission.key().id())|string() }}>Add Comment</a>
 
 	<div class="float-right">
@@ -23,7 +25,11 @@
 		<a class="link" href={{ '/%s/delete' % (submission.key().id())|string() }}>Delete</a>
 	</div>
 
-	<h4 class="bold italic">Comments({{ submission.comments.count()|string() }})</h4>
+	<br>
+	<br>
+	<div class="bold italic">Likes({{ submission.likes.count()|string() }})</div>
+	<div class="bold italic">Comments({{ submission.comments.count()|string() }})</div>
+	<br>
 
 	{% for comment in submission.comments %}
 
