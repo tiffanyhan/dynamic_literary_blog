@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+	<form method="post">
+		<label>
+			Edit this comment by <span class="bold">{{ comment.user.username }}</span>
+			on <span class="light-gray">{{ comment.created.strftime("%b %d, %Y") }}</span>:
+		</label>
+
+		<textarea class="comment-content-input" name="content">{{ comment.content }}</textarea>
+
+		<div class="error">{{ error }}</div>
+
+		<input type="submit" value="Edit">
+		<a href={{ '/%s' % (submission.key().id())|string() }}>Cancel</a>
+	</form>
+{% endblock %}

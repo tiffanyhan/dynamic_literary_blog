@@ -1,16 +1,29 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html>
+	<head>
+		<link href="/static/main.css" rel="stylesheet">
+		<title>ee cummings | poetry blog</title>
+	</head>
+	<body>
+		<div class="container">
+			<header>
+				<a href="/" class="main-title">
+					ee cummings poetry blog
+				</a>
+			</header>
 
-{% block content %}
+			<div id="content">
+				<img class="cover-img" src="http://images.barnesandnoble.com/pImages/bn-review/2014/0127/EECummings_AF.jpg" alt="ee cummings">
+				<a href="/newpost">Want to contribute?  Create a new entry here.</a>
+				<br>
+				<br>
+				{% for submission in submissions %}
+					{{ submission.render() | safe }}
+					<br>
+					<br>
+				{% endfor %}
+			</div>
+		</div>
 
-	<img class="cover-img" src="http://images.barnesandnoble.com/pImages/bn-review/2014/0127/EECummings_AF.jpg" alt="ee cummings">
-
-	<a href="/newpost">Create A New Entry</a>
-	<br>
-	<br>
-	{% for submission in submissions %}
-		{{ submission.render() | safe }}
-		<br>
-		<br>
-	{% endfor %}
-
-{% endblock %}
+	</body>
+</html>

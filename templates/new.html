@@ -1,22 +1,20 @@
 {% extends "base.html" %}
 
 {% block content %}
-	<h1>new post</h1>
+<form method="post">
+	<label>
+		<div>Add a new post title:</div>
+		<input class="submission-subject-input" type="text" name="subject" value="{{ subject }}">
+	</label>
 
-	<form method="post">
-		<label>
-			<div>Title:</div>
-			<input class="subject-input" type="text" name="subject" value="{{ subject }}">
-		</label>
+	<label>
+		<div>Add new post content:</div>
+		<textarea class="submission-content-input" name="content">{{ content }}</textarea>
+	</label>
 
-		<label>
-			<div>Post your favorite poem by ee cummings here:</div>
-			<textarea class="content-input" name="content">{{ content }}</textarea>
-		</label>
+	<div class="error">{{ error }}</div>
 
-		<div class="error">{{ error }}</div>
-
-		<input type="submit">
-		<a href="/">Cancel</a>
-	</form>
+	<input type="submit" value="Create">
+	<a href="/">Cancel</a>
+</form>
 {% endblock %}

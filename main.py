@@ -89,10 +89,10 @@ def valid_pw(name, password, h):
 	return h == make_pw_hash(name, password, salt)
 
 
-def blog_key(name = 'default'):
+def users_key(name = 'default'):
 	'''
 	returns a key to be used as the parent for each
-	submission instance created
+	user instance created
 	'''
 	return db.Key.from_path('/', name)
 
@@ -146,6 +146,14 @@ class User(db.Model):
 			return u
 
 
+def blog_key(name = 'default'):
+	'''
+	returns a key to be used as the parent for each
+	submission instance created
+	'''
+	return db.Key.from_path('/', name)
+
+
 class Submission(db.Model):
 	'''
 	class used to create the submission instances to be
@@ -161,17 +169,39 @@ class Submission(db.Model):
 		method that renders the submission using the submission.html
 		template, correctly rendering line breaks in html
 		'''
-		print('render called')
 		self._render_text = self.content.replace('\n', '<br>')
 		return render_str('submission.html', submission=self)
 
+	@classmethod
+	def by_id(cls, submission_id):
+		key = db.Key.from_path('Submission', int(submission_id), parent=blog_key())
+		submission = db.get(key)
+		#TODO: self is not available for class methods, so we
+		# need to find another method for error handlings
+		if not submission:
+			self.error(404)
+			return
 
-def users_key(name = 'default'):
-	'''
-	returns a key to be used as the parent for each
-	user instance created
-	'''
-	return db.Key.from_path('/', name)
+		return submission
+
+
+class Comment(db.Model):
+	submission = db.ReferenceProperty(Submission, collection_name='comments')
+	user = db.ReferenceProperty(User, collection_name='comments')
+	content = db.TextProperty(required=True)
+	created = db.DateTimeProperty(auto_now_add=True)
+
+	@classmethod
+	def by_id(cls, comment_id):
+		key = db.Key.from_path('Comment', int(comment_id))
+		comment = db.get(key)
+		#TODO: self is not available for class methods, so we
+		# need to find another method for error handlings
+		if not comment:
+			self.error(404)
+			return
+
+		return comment
 
 
 # COOKIES
@@ -232,22 +262,32 @@ def login_required_redirect_login(f):
 	return decorated_function
 
 
-def owner_required(f):
+def owner_submission_required(f):
 	@wraps(f)
 	def decorated_function(self, *args, **kwargs):
 		submission_id = args[0]
-		key = db.Key.from_path('Submission', int(submission_id), parent=blog_key())
-		submission = db.get(key)
-
-		if not submission:
-			self.error(404)
-			return
+		submission = Submission.by_id(submission_id)
 
 		if self.user.key().id() == submission.user.key().id():
 			args += (submission, )
 			return f(self, *args, **kwargs)
 		else:
-			self.redirect('/%s' % str(submission.key().id()))
+			self.redirect('/%s' % submission_id)
+	return decorated_function
+
+
+def owner_comment_required(f):
+	@wraps(f)
+	def decorated_function(self, *args, **kwargs):
+		submission_id = args[0]
+		comment_id = args[1]
+		comment = Comment.by_id(comment_id)
+
+		if self.user.key().id() == comment.user.key().id():
+			args += (comment, )
+			return f(self, *args, **kwargs)
+		else:
+			self.redirect('/%s' % submission_id)
 	return decorated_function
 
 
@@ -339,6 +379,7 @@ class MainHandler(Handler):
 		show all submissions on the main page
 		'''
 		submissions = db.GqlQuery("SELECT * from Submission ORDER BY created DESC limit 10")
+
 		self.render("main.html", submissions=submissions)
 
 
@@ -380,12 +421,7 @@ class SubmissionHandler(Handler):
 
 		if the associated submission instance in the db DNE, returns a 404 error
 		'''
-		key = db.Key.from_path('Submission', int(submission_id), parent=blog_key())
-		submission = db.get(key)
-
-		if not submission:
-			self.error(404)
-			return
+		submission = Submission.by_id(submission_id)
 
 		self.render("permalink.html", submission=submission)
 
@@ -507,36 +543,105 @@ class LogOutHandler(Handler):
 
 class EditPostHandler(Handler):
 	@login_required_redirect_login
-	@owner_required
+	@owner_submission_required
 	def get(self, submission_id, submission):
 		self.render('edit.html', submission=submission)
 
 	@login_required_redirect_login
-	@owner_required
+	@owner_submission_required
 	def post(self, submission_id, submission):
 		subject = self.request.get('subject')
 		content = self.request.get('content')
 
-		submission.subject = subject
-		submission.content = content
-		submission.put()
-		time.sleep(1)
+		if subject and content:
+			submission.subject = subject
+			submission.content = content
+			submission.put()
+			time.sleep(1)
 
-		self.redirect('/%s' % str(submission.key().id()))
+			self.redirect('/%s' % submission_id)
+		else:
+			error = "You must enter both a subject and content"
+			self.render("edit.html", submission=submission, error=error)
+
 
 class DeletePostHandler(Handler):
 	@login_required_redirect_login
-	@owner_required
+	@owner_submission_required
 	def get(self, submission_id, submission):
 		self.render('delete.html', submission=submission)
 
 	@login_required_redirect_login
-	@owner_required
+	@owner_submission_required
 	def post(self, submission_id, submission):
+		#TODO: make it so that deleting a post also
+		# deletes all of its comments
 		db.delete(submission)
 		time.sleep(1)
 
 		self.redirect('/')
+
+
+class NewCommentHandler(Handler):
+	@login_required_redirect_login
+	def get(self, submission_id):
+		submission = Submission.by_id(submission_id)
+		self.render('new_comment.html', submission=submission)
+
+	@login_required_redirect_login
+	def post(self, submission_id):
+		submission = Submission.by_id(submission_id)
+		content = self.request.get('content')
+
+		if content:
+			comment = Comment(submission=submission, user=self.user, content=content)
+			comment.put()
+			time.sleep(1)
+
+			self.redirect('/%s' % submission_id)
+		else:
+			error = 'You must enter content'
+			self.render('new_comment.html', submission=submission, error=error)
+
+
+class EditCommentHandler(Handler):
+	@login_required_redirect_login
+	@owner_comment_required
+	def get(self, submission_id, comment_id, comment):
+		submission = Submission.by_id(submission_id)
+		self.render('edit_comment.html', submission=submission, comment=comment)
+
+	@login_required_redirect_login
+	@owner_comment_required
+	def post(self, submission_id, comment_id, comment):
+		content = self.request.get('content')
+
+		if content:
+			comment.content = content
+			comment.put()
+			time.sleep(1)
+
+			self.redirect('/%s' % submission_id)
+		else:
+			submission = Submission.by_id(submission_id)
+			error = 'You must enter content'
+			self.render('edit_comment.html', submission=submission, comment=comment, error=error)
+
+
+class DeleteCommentHandler(Handler):
+	@login_required_redirect_login
+	@owner_comment_required
+	def get(self, submission_id, comment_id, comment):
+		submission = Submission.by_id(submission_id)
+		self.render('delete_comment.html', submission=submission)
+
+	@login_required_redirect_login
+	@owner_comment_required
+	def post(self, submission_id, comment_id, comment):
+		db.delete(comment)
+		time.sleep(1)
+
+		self.redirect('/%s' % submission_id)
 
 # ALL ROUTES AND ASSOCIATED HANDLERS
 app = webapp2.WSGIApplication([
@@ -548,5 +653,8 @@ app = webapp2.WSGIApplication([
 	('/login', LogInHandler),
 	('/logout', LogOutHandler),
 	('/([0-9]+)/edit', EditPostHandler),
-	('/([0-9]+)/delete', DeletePostHandler)
+	('/([0-9]+)/delete', DeletePostHandler),
+	('/([0-9]+)/newcomment', NewCommentHandler),
+	('/([0-9]+)/comment/([0-9]+)/edit', EditCommentHandler),
+	('/([0-9]+)/comment/([0-9]+)/delete', DeleteCommentHandler)
 ], debug=True)

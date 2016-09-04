@@ -5,19 +5,46 @@
 			<div class="submission-subject">
 				{{ submission.subject }}
 			</div>
-
 			<div class="submission-date">
-				posted by {{ submission.user.username }}
-				on {{ submission.created.strftime("%b %d, %Y") }}
+				posted by {{ submission.user.username }} on
+				{{ submission.created.strftime("%b %d, %Y") }}
 			</div>
 		</div>
 	</a>
-
 	<div class="submission-content">
 		{{ submission._render_text | safe }}
 	</div>
 
-	<a href={{ '/%s/edit' % (submission.key().id())|string() }}>Edit</a>
-	<a href={{ '/%s/delete' % (submission.key().id())|string() }}>Delete</a>
+	<a class="link" href="">Like</a>
+	<a class="link" href={{ '/%s/newcomment' % (submission.key().id())|string() }}>Add Comment</a>
+
+	<div class="float-right">
+		<a class="link" href={{ '/%s/edit' % (submission.key().id())|string() }}>Edit</a>
+		<a class="link" href={{ '/%s/delete' % (submission.key().id())|string() }}>Delete</a>
+	</div>
+
+	<h4 class="bold italic">Comments({{ submission.comments.count()|string() }})</h4>
+
+	{% for comment in submission.comments %}
+
+		<div class="comment">
+			<div class="comment-heading">
+				<span class="comment-name bold">
+					{{ comment.user.username }}
+				</span>
+				<span class="comment-date light-gray">
+					{{ comment.created.strftime("%b %d, %Y") }}
+				</span>
+			</div>
+			<div class="comment-content">
+				{{ comment.content.replace('\n', '<br>') | safe }}
+			</div>
+		</div>
+
+		<a class="link" href={{ '/%s/comment/%s/edit' % ((submission.key().id())|string(), (comment.key().id())|string() ) }}>Edit</a>
+		<a class="link" href={{ '/%s/comment/%s/delete' % ((submission.key().id())|string(), (comment.key().id())|string() ) }}>Delete</a>
+		<br>
+		<br>
+	{% endfor %}
 
 </div>
