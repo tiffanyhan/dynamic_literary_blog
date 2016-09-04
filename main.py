@@ -178,10 +178,6 @@ class Submission(db.Model):
 		submission = db.get(key)
 		#TODO: self is not available for class methods, so we
 		# need to find another method for error handlings
-		if not submission:
-			self.error(404)
-			return
-
 		return submission
 
 
@@ -197,10 +193,6 @@ class Comment(db.Model):
 		comment = db.get(key)
 		#TODO: self is not available for class methods, so we
 		# need to find another method for error handlings
-		if not comment:
-			self.error(404)
-			return
-
 		return comment
 
 
@@ -268,14 +260,27 @@ def login_required_redirect_login(f):
 	return decorated_function
 
 
-def owner_submission_required(f):
+def submission_required(f):
 	@wraps(f)
 	def decorated_function(self, *args, **kwargs):
 		submission_id = args[0]
 		submission = Submission.by_id(submission_id)
 
+		if submission:
+			kwargs['submission'] = submission
+			return f(self, *args, **kwargs)
+		else:
+			self.error(404)
+			return
+	return decorated_function
+
+
+def owner_submission_required(f):
+	@wraps(f)
+	def decorated_function(self, *args, **kwargs):
+		submission = kwargs['submission']
+
 		if self.user.key().id() == submission.user.key().id():
-			args += (submission, )
 			return f(self, *args, **kwargs)
 		else:
 			self.redirect('/%s' % submission_id)
@@ -287,7 +292,6 @@ def not_owner_submission_required(f):
 	def decorated_function(self, *args, **kwargs):
 		submission_id = args[0]
 		submission = Submission.by_id(submission_id)
-		print(self.user, submission.user)
 
 		if self.user.key().id() != submission.user.key().id():
 			args += (submission, )
@@ -297,17 +301,30 @@ def not_owner_submission_required(f):
 	return decorated_function
 
 
-def owner_comment_required(f):
+def comment_required(f):
 	@wraps(f)
 	def decorated_function(self, *args, **kwargs):
-		submission_id = args[0]
 		comment_id = args[1]
 		comment = Comment.by_id(comment_id)
 
-		if self.user.key().id() == comment.user.key().id():
-			args += (comment, )
+		if comment:
+			kwargs['comment'] = comment
 			return f(self, *args, **kwargs)
 		else:
+			self.error(404)
+			return
+	return decorated_function
+
+
+def owner_comment_required(f):
+	@wraps(f)
+	def decorated_function(self, *args, **kwargs):
+		comment = kwargs['comment']
+
+		if self.user.key().id() == comment.user.key().id():
+			return f(self, *args, **kwargs)
+		else:
+			submission_id = args[0]
 			self.redirect('/%s' % submission_id)
 	return decorated_function
 
@@ -434,7 +451,8 @@ class NewHandler(Handler):
 			self.render("new.html", subject=subject, content=content, error=error)
 
 class SubmissionHandler(Handler):
-	def get(self, submission_id):
+	@submission_required
+	def get(self, submission_id, **kwargs):
 		'''
 		using the submission_id passed in as a parameter in the URL, gets the
 		associated submission instance in the db and renders the permalink page
@@ -442,7 +460,7 @@ class SubmissionHandler(Handler):
 
 		if the associated submission instance in the db DNE, returns a 404 error
 		'''
-		submission = Submission.by_id(submission_id)
+		submission = kwargs['submission']
 
 		self.render("permalink.html", submission=submission)
 
@@ -564,13 +582,17 @@ class LogOutHandler(Handler):
 
 class EditPostHandler(Handler):
 	@login_required_redirect_login
+	@submission_required
 	@owner_submission_required
-	def get(self, submission_id, submission):
+	def get(self, submission_id, **kwargs):
+		submission = kwargs['submission']
 		self.render('edit.html', submission=submission)
 
 	@login_required_redirect_login
+	@submission_required
 	@owner_submission_required
-	def post(self, submission_id, submission):
+	def post(self, submission_id, **kwargs):
+		submission = kwargs['submission']
 		subject = self.request.get('subject')
 		content = self.request.get('content')
 
@@ -588,13 +610,17 @@ class EditPostHandler(Handler):
 
 class DeletePostHandler(Handler):
 	@login_required_redirect_login
+	@submission_required
 	@owner_submission_required
-	def get(self, submission_id, submission):
+	def get(self, submission_id, **kwargs):
+		submission = kwargs['submission']
 		self.render('delete.html', submission=submission)
 
 	@login_required_redirect_login
+	@submission_required
 	@owner_submission_required
-	def post(self, submission_id, submission):
+	def post(self, submission_id, **kwargs):
+		submission = kwargs['submission']
 		comments = Comment.all().filter('submission =', submission)
 		likes = Like.all().filter('submission =', submission)
 
@@ -608,13 +634,15 @@ class DeletePostHandler(Handler):
 
 class NewCommentHandler(Handler):
 	@login_required_redirect_login
+	@submission_required
 	def get(self, submission_id):
-		submission = Submission.by_id(submission_id)
+		submission = kwargs['submission']
 		self.render('new_comment.html', submission=submission)
 
 	@login_required_redirect_login
+	@submission_required
 	def post(self, submission_id):
-		submission = Submission.by_id(submission_id)
+		submission = kwargs['submission']
 		content = self.request.get('content')
 
 		if content:
@@ -630,14 +658,20 @@ class NewCommentHandler(Handler):
 
 class EditCommentHandler(Handler):
 	@login_required_redirect_login
+	@submission_required
+	@comment_required
 	@owner_comment_required
-	def get(self, submission_id, comment_id, comment):
-		submission = Submission.by_id(submission_id)
+	def get(self, submission_id, comment_id, **kwargs):
+		submission = kwargs['submission']
+		comment = kwargs['comment']
 		self.render('edit_comment.html', submission=submission, comment=comment)
 
 	@login_required_redirect_login
+	@submission_required
+	@comment_required
 	@owner_comment_required
-	def post(self, submission_id, comment_id, comment):
+	def post(self, submission_id, comment_id, **kwargs):
+		comment = kwargs['comment']
 		content = self.request.get('content')
 
 		if content:
@@ -647,21 +681,26 @@ class EditCommentHandler(Handler):
 
 			self.redirect('/%s' % submission_id)
 		else:
-			submission = Submission.by_id(submission_id)
+			submission = kwargs['submission']
 			error = 'You must enter content'
 			self.render('edit_comment.html', submission=submission, comment=comment, error=error)
 
 
 class DeleteCommentHandler(Handler):
 	@login_required_redirect_login
+	@submission_required
+	@comment_required
 	@owner_comment_required
-	def get(self, submission_id, comment_id, comment):
-		submission = Submission.by_id(submission_id)
+	def get(self, submission_id, comment_id, **kwargs):
+		submission = kwargs['submission']
 		self.render('delete_comment.html', submission=submission)
 
 	@login_required_redirect_login
+	@submission_required
+	@comment_required
 	@owner_comment_required
-	def post(self, submission_id, comment_id, comment):
+	def post(self, submission_id, comment_id, **kwargs):
+		comment = kwargs['comment']
 		db.delete(comment)
 		time.sleep(1)
 
@@ -670,8 +709,10 @@ class DeleteCommentHandler(Handler):
 
 class LikePostHandler(Handler):
 	@login_required_redirect_login
+	@submission_required
 	@not_owner_submission_required
-	def post(self, submission_id, submission):
+	def post(self, submission_id, **kwargs):
+		submission = kwargs['submission']
 		for like in submission.likes:
 			if self.user.key().id() == like.user.key().id():
 				self.redirect('/%s' % submission_id)
