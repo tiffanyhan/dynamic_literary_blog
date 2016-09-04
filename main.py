@@ -287,6 +287,7 @@ def not_owner_submission_required(f):
 	def decorated_function(self, *args, **kwargs):
 		submission_id = args[0]
 		submission = Submission.by_id(submission_id)
+		print(self.user, submission.user)
 
 		if self.user.key().id() != submission.user.key().id():
 			args += (submission, )
@@ -594,9 +595,12 @@ class DeletePostHandler(Handler):
 	@login_required_redirect_login
 	@owner_submission_required
 	def post(self, submission_id, submission):
-		#TODO: make it so that deleting a post also
-		# deletes all of its comments
+		comments = Comment.all().filter('submission =', submission)
+		likes = Like.all().filter('submission =', submission)
+
 		db.delete(submission)
+		db.delete(comments)
+		db.delete(likes)
 		time.sleep(1)
 
 		self.redirect('/')
@@ -665,6 +669,7 @@ class DeleteCommentHandler(Handler):
 
 
 class LikePostHandler(Handler):
+	@login_required_redirect_login
 	@not_owner_submission_required
 	def post(self, submission_id, submission):
 		for like in submission.likes:
