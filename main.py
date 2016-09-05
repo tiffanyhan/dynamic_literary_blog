@@ -275,7 +275,7 @@ class NewHandler(Handler):
                                     subject=subject,
                                     content=content)
             submission.put()
-            time.sleep(1)
+            time.sleep(0.1)
 
             self.redirect('/%s' % str(submission.key().id()))
 
@@ -446,7 +446,7 @@ class EditPostHandler(Handler):
             submission.subject = subject
             submission.content = content
             submission.put()
-            time.sleep(1)
+            time.sleep(0.1)
 
             self.redirect('/%s' % submission_id)
         else:
@@ -479,7 +479,7 @@ class DeletePostHandler(Handler):
         db.delete(submission)
         db.delete(comments)
         db.delete(likes)
-        time.sleep(1)
+        time.sleep(0.1)
 
         self.redirect('/')
 
@@ -506,7 +506,7 @@ class NewCommentHandler(Handler):
         if content:
             comment = Comment(user=self.user, content=content, **kwargs)
             comment.put()
-            time.sleep(1)
+            time.sleep(0.1)
 
             self.redirect('/%s' % submission_id)
         else:
@@ -541,7 +541,7 @@ class EditCommentHandler(Handler):
         if content:
             comment.content = content
             comment.put()
-            time.sleep(1)
+            time.sleep(0.1)
 
             self.redirect('/%s' % submission_id)
         else:
@@ -571,7 +571,7 @@ class DeleteCommentHandler(Handler):
         '''
         comment = kwargs['comment']
         db.delete(comment)
-        time.sleep(1)
+        time.sleep(0.1)
 
         self.redirect('/%s' % submission_id)
 
@@ -594,7 +594,7 @@ class LikePostHandler(Handler):
 
         like = Like(submission=submission, user=self.user)
         like.put()
-        time.sleep(1)
+        time.sleep(0.1)
 
         self.redirect('/%s' % submission_id)
 

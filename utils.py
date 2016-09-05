@@ -17,32 +17,6 @@ jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_dir),
 SECRET = 'imsosecret'
 
 
-# MODEL CLASSES
-def users_key(name='default'):
-    '''
-    returns a key to be used as the parent for each
-    user instance created
-    '''
-    return db.Key.from_path('/', name)
-
-
-def blog_key(name='default'):
-    '''
-    returns a key to be used as the parent for each
-    submission instance created
-    '''
-    return db.Key.from_path('/', name)
-
-
-def render_str(template, **params):
-    '''
-    a global version of render_str that is available
-    to functions that don't inherit from Handler
-    '''
-    t = jinja_env.get_template(template)
-    return t.render(params)
-
-
 # FORM VALIDATION
 USER_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
 PASSWORD_RE = re.compile(r"^.{3,20}$")
@@ -125,3 +99,29 @@ def check_secure_val(h):
     val = h.split('|')[0]
     if h == make_secure_val(val):
         return val
+
+
+# MODEL CLASSES
+def users_key(name='default'):
+    '''
+    returns a key to be used as the parent for each
+    user instance created
+    '''
+    return db.Key.from_path('/', name)
+
+
+def blog_key(name='default'):
+    '''
+    returns a key to be used as the parent for each
+    submission instance created
+    '''
+    return db.Key.from_path('/', name)
+
+
+def render_str(template, **params):
+    '''
+    a global version of render_str that is available
+    to functions that don't inherit from Handler
+    '''
+    t = jinja_env.get_template(template)
+    return t.render(params)
