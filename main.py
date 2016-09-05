@@ -152,7 +152,7 @@ class User(db.Model):
         retrieves a user instance from the db using the
         username that was entered
         '''
-        u = User.all().filter('username=', name).get()
+        u = User.all().filter('username =', name).get()
         return u
 
     @classmethod
