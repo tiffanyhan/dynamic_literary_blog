@@ -1,20 +1,35 @@
-{% extends "base.html" %}
-{% block content %}
+<html>
+	<head>
+		<link href="/static/main.css" rel="stylesheet">
+		<title>ee cummings | poetry blog</title>
+	</head>
+	<body>
+		<a class="link" href="/">Back To All Posts</a>
+		<div class="container">
+			<header>
+				<a href="/" class="main-title">
+					ee cummings poetry blog
+				</a>
+			</header>
 
-<p>Don't have a login yet?  <a href="/signup">Register here</a></p>
-<h2>Login</h2>
-<div class="error">{{ error }}</div>
-<form method="post">
-	<label> Username
-		<input type="text" name="username" value="{{ username }}">
-	</label>
-	<label> Password
-		<input type="password" name="password" value="">
-	</label>
-	<br>
-	<input class="submit" type="submit">
-	<a class="link" href="/">Cancel</a>
+			<div id="content">
+				<p>Don't have a login yet?  <a href="/signup">Register here</a></p>
+				<h2>Login</h2>
+				<div class="error">{{ error }}</div>
+				<form method="post">
+					<label> Username
+						<input type="text" name="username" value="{{ username }}">
+					</label>
+					<label> Password
+						<input type="password" name="password" value="">
+					</label>
+					<br>
+					<input class="submit" type="submit">
+					<a class="link" href="/">Cancel</a>
 
-</form>
+				</form>
+			</div>
+		</div>
 
-{% endblock %}
+	</body>
+</html>
