@@ -1,4 +1,4 @@
-HOW TO RUN
+How To Run
 ===========
 
 To run the deployed version of this project,
@@ -13,7 +13,7 @@ To run this project on your local machine:
 	  by default.  to see the page, visit
 	  http://localhost:8080/
 
-PROJECT INFO
+Project Info
 =============
 
 - only logged in users can create, comment on, and like blog entries
